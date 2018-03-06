@@ -21,7 +21,7 @@ namespace ray {
   /// Implicit
   //--------------------------------------------------
   enum struct ImplicitType {
-    plane, sphere, box
+    plane, sphere, box, undefined
   };
 
   struct ImplicitHit {
@@ -31,13 +31,17 @@ namespace ray {
   };
 
   struct Implicit : public Transformable {
-    ImplicitType type;
+    ImplicitType type = ImplicitType::undefined;
     Material material;
     std::vector<std::shared_ptr<Implicit>> children;
 
-    Implicit(ImplicitType type = ImplicitType::sphere,
+    Implicit() = default;
+    Implicit(ImplicitType type,
              Material material = Material());
 
+    void add_child(std::shared_ptr<Implicit> child);
+
+    //TODO: move this method to RaySceneRenderer
     ImplicitHit ray_hit_test(Ray& ray, Transform& transform);
   };
 }

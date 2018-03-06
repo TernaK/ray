@@ -10,6 +10,10 @@ Implicit::Implicit(ImplicitType type, Material material)
 
 }
 
+void Implicit::add_child(std::shared_ptr<Implicit> child) {
+  children.push_back(child);
+}
+
 ImplicitHit Implicit::ray_hit_test(Ray& ray, Transform& transform) {
   ImplicitHit ihit;
   switch (type) {
