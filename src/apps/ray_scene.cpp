@@ -15,6 +15,7 @@ int main(int argc, char* argv[]) {
   shared_ptr<Camera> camera = make_shared<Camera>();
   camera->position = glm::vec3(0,5,5);
 
-  RayCaster rc = RayCaster(1, camera, scene->ambient);
+  int supersample = 1;
+  RayCaster rc = RayCaster(camera, scene->ambient, supersample);
   Ray ray = rc.make_ray(camera->frame_size/2.0f);
 }

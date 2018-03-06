@@ -3,7 +3,32 @@
 #include <opencv2/opencv.hpp>
 
 namespace ray {
-  struct TraversedImplicit {
+
+  /// ImplicitHit
+  //--------------------------------------------------
+  struct ImplicitHit {
+    bool yes = false;
+    Hit hit;
+    Material material;
+  };
+
+  /// HitTester
+  //--------------------------------------------------
+  struct HitTester {
+    static bool test_plane(Ray& ray, Hit& hit, Transform& transform,
+                           glm::vec3 plane_normal,
+                           glm::vec3 offset = VEC3ZERO);
+
+    static bool test_box(Ray& ray, Hit& hit, Transform& transform);
+
+    static bool test_sphere(Ray& ray, Hit& hit, Transform& transform);
+
+    //static Ray transform_ray(Ray& ray, Transform& transform);
+  };
+
+  /// Renderable
+  //--------------------------------------------------
+  struct Renderable {
     std::shared_ptr<Implicit> implicit;
     Transform transform;
   };
@@ -19,17 +44,16 @@ namespace ray {
 
     void add(std::shared_ptr<Implicit> implicit);
 
-    std::vector<TraversedImplicit> traverse_scene();
+    std::vector<Renderable> traverse_scene();
 
     void traverse_node(std::shared_ptr<Implicit> implicit,
-                       std::vector<TraversedImplicit>& traversed_implicits,
+                       std::vector<Renderable>& rendrables,
                        Transform& p_transform);
   };
 
   /// RayCaster
   //--------------------------------------------------
   struct RayCaster {
-    int max_depth;
     glm::vec3 ambient;
     int supersample;
     float x_near, y_near, z_near;
@@ -37,8 +61,15 @@ namespace ray {
     glm::vec3 cam_position;
     glm::mat3 cam_trans;
 
-    RayCaster(int max_depth, std::shared_ptr<Camera> camera,
+    RayCaster(std::shared_ptr<Camera> camera,
               glm::vec3 ambient, int supersample = 1);
+
+    ImplicitHit cast_ray(Ray&ray,
+                         std::vector<std::shared_ptr<Renderable>>
+                         renderables);
+
+    ImplicitHit ray_hit_test(std::shared_ptr<Implicit> implicit,
+                             Ray& ray, Transform& transform);
 
     Ray make_ray(glm::vec2 px);
 
