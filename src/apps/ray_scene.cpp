@@ -7,15 +7,20 @@ using namespace ray;
 int main(int argc, char* argv[]) {
 
   shared_ptr<Implicit> plane = make_shared<Implicit>(ImplicitType::plane);
+  shared_ptr<Implicit> sphere = make_shared<Implicit>(ImplicitType::sphere);
 
   shared_ptr<RayScene> scene = make_shared<RayScene>();
   scene->add(plane);
-  auto traversed = scene->traverse_scene();
+  scene->add(sphere);
 
   shared_ptr<Camera> camera = make_shared<Camera>();
   camera->position = glm::vec3(0,5,5);
-
-  int supersample = 1;
-  RayCaster rc = RayCaster(camera, scene->ambient, supersample);
-  Ray ray = rc.make_ray(camera->frame_size/2.0f);
+  
+  plane->position.x = 2;
+  sphere->position.x = -2;
+  
+  RayRenderer renderer;
+  cv::Mat image = renderer.render_scene(scene, camera);
+  cv::imshow("image", image);
+  cv::waitKey();
 }

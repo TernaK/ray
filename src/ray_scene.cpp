@@ -111,9 +111,7 @@ void RayScene::traverse_node(std::shared_ptr<Implicit> implicit,
 
 /// RayCaster
 //--------------------------------------------------
-RayCaster::RayCaster(std::shared_ptr<Camera> camera,
-                     glm::vec3 ambient, int supersample)
-: ambient(ambient), supersample(supersample) {
+RayCaster::RayCaster(std::shared_ptr<Camera> camera) {
   y_near = camera->z_near * tan(glm::radians(camera->fovy/2.0));
   x_near = camera->get_aspect_ratio() * y_near;
   z_near = camera->z_near;
@@ -131,8 +129,8 @@ Ray RayCaster::make_ray(glm::vec2 px) {
   return ray;
 }
 
-ImplicitHit RayCaster::ray_hit_test(std::shared_ptr<Implicit> implicit,
-                                    Ray& ray, Transform& transform) {
+ImplicitHit RayCaster::implicit_hit_test(std::shared_ptr<Implicit> implicit,
+                                         Ray& ray, Transform& transform) {
   ImplicitHit ihit;
   switch (implicit->type) {
     case ImplicitType::plane:
@@ -155,25 +153,49 @@ ImplicitHit RayCaster::ray_hit_test(std::shared_ptr<Implicit> implicit,
   return ihit;
 }
 
-ImplicitHit RayCaster::cast_ray(Ray& ray, std::vector<Renderable> renderables) {
+bool RayCaster::cast_ray(Ray& ray, std::vector<Renderable>& renderables, ImplicitHit& hit) {
   //get all hits
   map<float,ImplicitHit> hits;
   float zbuf = std::numeric_limits<float>::max();
   for(auto& renderable: renderables) {
-    ImplicitHit hit = ray_hit_test(renderable.implicit, ray, renderable.transform);
-    if(hit.yes && hit.hit.dist < zbuf) {
-      zbuf = hit.hit.dist;
-      hits[hit.hit.dist] = std::move(hit);
+    ImplicitHit ihit = implicit_hit_test(renderable.implicit, ray, renderable.transform);
+    if(ihit.yes && ihit.hit.dist < zbuf) {
+      zbuf = ihit.hit.dist;
+      hits[hit.hit.dist] = std::move(ihit);
     }
   }
 
   //if at least one hit, use the first
   if(!hits.empty()) {
-    auto best_hit = hits.begin();
-    return best_hit->second;
-  } else {
-    ImplicitHit nohit;
-    return nohit;
+    hit = hits.begin()->second;
+    return true;
   }
+  
+  return false;
 }
 
+/// RayRenderer
+//--------------------------------------------------
+cv::Mat RayRenderer::render_scene(shared_ptr<RayScene> scene, shared_ptr<Camera> camera) {
+  vector<Renderable> renderables = scene->traverse_scene();
+  
+  cv::Size frame_size(camera->frame_size.x, camera->frame_size.y);
+  glm::vec3 ambient = scene->ambient;
+  cv::Mat frame(frame_size * supersample, CV_32FC3, {ambient.r, ambient.g, ambient.b});
+  
+  RayCaster ray_caster(camera);
+  
+  for(int y = 0; y < frame_size.height; y++) {
+    for(int x = 0; x <frame_size.width; x++) {
+      cv::Vec3f& frag = frame.at<cv::Vec3f>(cv::Point(x,y));
+      Ray ray = ray_caster.make_ray(glm::vec2(x,y));
+      ImplicitHit hit;
+      if(ray_caster.cast_ray(ray, renderables, hit)) {
+        frag = cv::Vec3f(hit.material.color.r, hit.material.color.g, hit.material.color.b);
+      }
+    }
+  }
+  
+  cv::resize(frame, frame, frame_size);
+  return frame;
+}

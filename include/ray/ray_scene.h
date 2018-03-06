@@ -55,33 +55,30 @@ namespace ray {
   /// RayCaster
   //--------------------------------------------------
   struct RayCaster {
-    glm::vec3 ambient;
-    int supersample;
     float x_near, y_near, z_near;
     glm::vec2 frame_size;
     glm::vec3 cam_position;
     glm::mat3 cam_trans;
 
-    RayCaster(std::shared_ptr<Camera> camera,
-              glm::vec3 ambient, int supersample = 1);
-
-    ImplicitHit cast_ray(Ray& ray, std::vector<Renderable> renderables);
-
-    ImplicitHit ray_hit_test(std::shared_ptr<Implicit> implicit,
-                             Ray& ray, Transform& transform);
-
+    RayCaster(std::shared_ptr<Camera> camera);
+    
     Ray make_ray(glm::vec2 px);
+
+    bool cast_ray(Ray& ray, std::vector<Renderable>& renderables, ImplicitHit& hit);
+
+    ImplicitHit implicit_hit_test(std::shared_ptr<Implicit> implicit,
+                                  Ray& ray, Transform& transform);
 
   };
 
   /// RayRenderer
   //--------------------------------------------------
-//  struct RayRenderer {
-//    int max_depth = 1;
-//
-//    RayRenderer() = default;
-//
-//    cv::Mat render_scene(std::shared_ptr<RayScene> scene);
-//
-//  };
+  struct RayRenderer {
+    int supersample = 1;
+    
+    RayRenderer() = default;
+
+    cv::Mat render_scene(std::shared_ptr<RayScene> scene, std::shared_ptr<Camera> camera);
+
+  };
 }
