@@ -101,15 +101,20 @@ namespace ray {
   struct Camera {
     glm::vec3 position = glm::vec3(0,2,5);
     float fovy = 70.0;
-    float aspect_ratio = 1.0;
     float z_near = 0.1;
     float z_far = 50.0;
     glm::vec3 target = glm::vec3(0);
     glm::vec3 up = glm::vec3(0,1,0);
+    glm::vec2 frame_size = glm::vec2(360, 240);
 
     Camera() = default;
+
     glm::mat4 get_view_mat() const {
       return glm::lookAt(position, target, up);
+    }
+
+    float get_aspect_ratio() {
+      return frame_size.x / frame_size.y;
     }
   };
 
