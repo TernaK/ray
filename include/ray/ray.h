@@ -52,17 +52,17 @@ namespace ray {
   /// Hit
   //--------------------------------------------------
   struct Hit {
-    glm::vec3 point;
-    glm::vec3 normal;
-    float distance;
+    glm::vec3 pt;
+    glm::vec3 norm;
+    float dist;
   };
 
   /// Ray
   //--------------------------------------------------
   struct Ray {
-    glm::vec3 origin;
-    glm::vec3 direc;
-    float depth;
+    glm::vec3 pt;
+    glm::vec3 dir;
+    int depth;
   };
 
   /// Material
@@ -71,10 +71,46 @@ namespace ray {
     glm::vec3 color = glm::vec3(0.6, 0.2, 0.7);
     glm::vec3 strength = glm::vec3(0.25,1.0,0.3); //ambient, diffuse, specular
     float shininess = 32;
-    float alpha = 1.0;
+    float refrac = 1;
+    float reflec = 0.3;
 
     Material() = default;
-    Material(glm::vec3 color, float shininess = 32, float alpha = 1.0)
-    : color(color), shininess(shininess), alpha(alpha) { }
+    Material(glm::vec3 color, float shininess = 32)
+    : color(color), shininess(shininess) { }
   };
+
+  /// LightType
+  //--------------------------------------------------
+  enum struct LightType {
+    point, directional
+  };
+
+  /// Light
+  //--------------------------------------------------
+  struct Light {
+    LightType type;
+    glm::vec3 position;
+    glm::vec3 direction;
+    glm::vec3 color;
+    glm::vec3 attenuation; //increasing order
+    Light(LightType type = LightType::point): type(type) { };
+  };
+
+  /// Camera
+  //--------------------------------------------------
+  struct Camera {
+    glm::vec3 position = glm::vec3(0,2,5);
+    float fovy = 70.0;
+    float aspect_ratio = 1.0;
+    float z_near = 0.1;
+    float z_far = 50.0;
+    glm::vec3 target = glm::vec3(0);
+    glm::vec3 up = glm::vec3(0,1,0);
+
+    Camera() = default;
+    glm::mat4 get_view_mat() const {
+      return glm::lookAt(position, target, up);
+    }
+  };
+
 }
