@@ -1,6 +1,7 @@
 #pragma once
 #include <ray/implicit.h>
 #include <opencv2/opencv.hpp>
+#include <map>
 
 namespace ray {
 
@@ -64,9 +65,7 @@ namespace ray {
     RayCaster(std::shared_ptr<Camera> camera,
               glm::vec3 ambient, int supersample = 1);
 
-    ImplicitHit cast_ray(Ray&ray,
-                         std::vector<std::shared_ptr<Renderable>>
-                         renderables);
+    ImplicitHit cast_ray(Ray& ray, std::vector<Renderable> renderables);
 
     ImplicitHit ray_hit_test(std::shared_ptr<Implicit> implicit,
                              Ray& ray, Transform& transform);

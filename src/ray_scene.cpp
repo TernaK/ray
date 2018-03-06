@@ -155,7 +155,25 @@ ImplicitHit RayCaster::ray_hit_test(std::shared_ptr<Implicit> implicit,
   return ihit;
 }
 
-ImplicitHit RayCaster::cast_ray(Ray&ray,
-                                vector<shared_ptr<Renderable>> renderables) {
+ImplicitHit RayCaster::cast_ray(Ray& ray, std::vector<Renderable> renderables) {
+  //get all hits
+  map<float,ImplicitHit> hits;
+  float zbuf = std::numeric_limits<float>::max();
+  for(auto& renderable: renderables) {
+    ImplicitHit hit = ray_hit_test(renderable.implicit, ray, renderable.transform);
+    if(hit.yes && hit.hit.dist < zbuf) {
+      zbuf = hit.hit.dist;
+      hits[hit.hit.dist] = std::move(hit);
+    }
+  }
+
+  //if at least one hit, use the first
+  if(!hits.empty()) {
+    auto best_hit = hits.begin();
+    return best_hit->second;
+  } else {
+    ImplicitHit nohit;
+    return nohit;
+  }
 }
 
