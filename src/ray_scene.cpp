@@ -194,9 +194,9 @@ cv::Vec3f RayRenderer::shade_frag(Hit& hit, Material& material,
                                   shared_ptr<Camera> camera, shared_ptr<Light> light,
                                   std::vector<Renderable>& renderables) {
   cv::Vec3f frag;
-  bool in_shadow = test_shadow(hit, light, renderables);
+  bool is_in_shadow = in_shadow(hit, light, renderables);
   //if in shadow, then use scene ambient color
-  if(!in_shadow) {
+  if(!is_in_shadow) {
     glm::vec3 l_vec = glm::normalize(light->position - hit.pt);
     glm::vec3 v_vec = glm::normalize(camera->position - hit.pt);
     float dist = glm::length(light->position - hit.pt);
@@ -214,6 +214,18 @@ cv::Vec3f RayRenderer::shade_frag(Hit& hit, Material& material,
     spec = spec < 0 ? 0 : spec;
     glm::vec3 specular = material.strength.z * light->color * pow(spec, material.shininess);
     glm::vec3 color = (ambient + attenuation * (diffuse + specular)) * material.color;
+
+    //reflection
+    glm::vec3 reflect_dir = glm::reflect(-v_vec, hit.norm);
+    Ray reflect_ray;
+    reflect_ray.dir = reflect_dir;
+    reflect_ray.pt = hit.pt;
+    ImplicitHit ihit;
+    if(ray_caster->cast_ray(reflect_ray, renderables, ihit)) {
+      if(!in_shadow(ihit.hit, light, renderables))
+        color += material.reflec * ihit.material.color;
+    }
+
     color = glm::clamp(color, 0.0f, 1.0f);
     frag = cv::Vec3f(color.b, color.g, color.r);
   } else {
@@ -223,7 +235,7 @@ cv::Vec3f RayRenderer::shade_frag(Hit& hit, Material& material,
   return frag;
 }
 
-bool RayRenderer::test_shadow(Hit& hit, std::shared_ptr<Light> light,
+bool RayRenderer::in_shadow(Hit& hit, std::shared_ptr<Light> light,
                               std::vector<Renderable>& renderables) {
   //cast a ray to the light
   Ray ray_to_light = ray_caster->make_ray(hit.pt, light->position);

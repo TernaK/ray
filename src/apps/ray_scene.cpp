@@ -12,8 +12,9 @@ int main(int argc, char* argv[]) {
       if(i == 0 && j == 0) continue;
       auto sphere = std::make_shared<Implicit>(ImplicitType::sphere);
       sphere->scale = glm::vec3(1);
-      sphere->position = glm::vec3(j*2.5,i*2.5,1);
+      sphere->position = glm::vec3(j*2.5,1,i*2.5);
       sphere->material.color = glm::vec3(fabs(j),fabs(i),0.2);
+      sphere->material.reflec = 0.15;
       spheres.push_back(std::move(sphere));
     }
   }
@@ -27,18 +28,20 @@ int main(int argc, char* argv[]) {
   auto plane = std::make_shared<Implicit>(ImplicitType::plane);
   plane->scale = glm::vec3(6);
   plane->material.color = glm::vec3(0.2,0.2,0.85);
-  plane->rotation.x = 90;
+  plane->material.reflec = 0;
   plane->position.z = 0;
 
   shared_ptr<RayScene> scene = make_shared<RayScene>();
-  scene->add(box);
   for(auto& s: spheres)
     scene->add(s);
   scene->add(plane);
 
+  scene->light->position = glm::vec3(4,10,4);
+
   shared_ptr<Camera> camera = make_shared<Camera>();
-  camera->frame_size = glm::vec2(640,480);
-  camera->position = glm::vec3(0,0,10);
+//  camera->frame_size = glm::vec2(640,480);
+  camera->position = glm::vec3(0,0.5,0.2);
+  camera->target = glm::vec3(1,0.5,-1);
   
   RayRenderer renderer;
   renderer.supersample = 2;
