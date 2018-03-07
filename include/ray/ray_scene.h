@@ -85,7 +85,8 @@ namespace ray {
     
     RayRenderer() = default;
 
-    cv::Mat render_scene(std::shared_ptr<RayScene> scene, std::shared_ptr<Camera> camera);
+    cv::Mat render_scene(std::shared_ptr<RayScene> scene,
+                         std::shared_ptr<Camera> camera);
 
     bool in_shadow(Hit& hit, std::shared_ptr<Light> light,
                      std::vector<Renderable>& renderables);
@@ -95,6 +96,11 @@ namespace ray {
                          std::shared_ptr<Camera> camera,
                          std::shared_ptr<Light> light,
                          std::vector<Renderable>& renderables);
+
+    glm::vec3 get_light_contribution(Hit& hit, Material& material,
+                                     std::shared_ptr<Camera> camera,
+                                     std::shared_ptr<Light> light,
+                                     std::vector<Renderable>& renderables);
 
   };
 }

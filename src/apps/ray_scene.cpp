@@ -14,7 +14,7 @@ int main(int argc, char* argv[]) {
       sphere->scale = glm::vec3(1);
       sphere->position = glm::vec3(j*2.5,1,i*2.5);
       sphere->material.color = glm::vec3(fabs(j),fabs(i),0.2);
-      sphere->material.reflec = 0.15;
+      sphere->material.reflec = 0.1;
       spheres.push_back(std::move(sphere));
     }
   }
