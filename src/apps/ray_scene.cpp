@@ -14,7 +14,7 @@ int main(int argc, char* argv[]) {
       sphere->scale = glm::vec3(1);
       sphere->position = glm::vec3(j*2.5,1,i*2.5);
       sphere->material.color = glm::vec3(fabs(j),fabs(i),0.2);
-      sphere->material.reflec = 0.1;
+      sphere->material.reflec = 0.2;
       spheres.push_back(std::move(sphere));
     }
   }
@@ -36,13 +36,13 @@ int main(int argc, char* argv[]) {
     scene->add(s);
   scene->add(plane);
 
-  scene->light->position = glm::vec3(4,10,4);
+  scene->light->position = 4.0f * glm::vec3(4,10,4);
 
   shared_ptr<Camera> camera = make_shared<Camera>();
-//  camera->frame_size = glm::vec2(640,480);
-  camera->position = glm::vec3(0,0.5,0.2);
-  camera->target = glm::vec3(1,0.5,-1);
-  
+  camera->frame_size = glm::vec2(640,480);
+  camera->position = glm::vec3(0,8,0.2);
+//  camera->target = glm::vec3(1,0.5,-1);
+
   RayRenderer renderer;
   renderer.supersample = 2;
 
