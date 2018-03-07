@@ -89,10 +89,10 @@ namespace ray {
   //--------------------------------------------------
   struct Light {
     LightType type;
-    glm::vec3 position;
-    glm::vec3 direction;
-    glm::vec3 color;
-    glm::vec3 attenuation; //increasing order
+    glm::vec3 position = glm::vec3(3,10,3);
+    glm::vec3 direction = glm::vec3(0,0,-1);
+    glm::vec3 color = VEC3EYE;
+    glm::vec3 attenuation = glm::vec3(1, 0.005, 0.0001); //increasing order
     Light(LightType type = LightType::point): type(type) { };
   };
 
@@ -105,7 +105,7 @@ namespace ray {
     float z_far = 50.0;
     glm::vec3 target = glm::vec3(0);
     glm::vec3 up = glm::vec3(0,1,0);
-    glm::vec2 frame_size = glm::vec2(360, 240);
+    glm::vec2 frame_size = glm::vec2(320, 240);
 
     Camera() = default;
 

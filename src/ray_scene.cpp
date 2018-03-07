@@ -111,16 +111,16 @@ void RayScene::traverse_node(std::shared_ptr<Implicit> implicit,
 
 /// RayCaster
 //--------------------------------------------------
-RayCaster::RayCaster(std::shared_ptr<Camera> camera) {
+RayCaster::RayCaster(std::shared_ptr<Camera> camera, glm::vec2 frame_size) {
   y_near = camera->z_near * tan(glm::radians(camera->fovy/2.0));
   x_near = camera->get_aspect_ratio() * y_near;
   z_near = camera->z_near;
-  frame_size = camera->frame_size;
+  this->frame_size = frame_size;
   cam_trans = glm::inverse(glm::mat3(camera->get_view_mat()));
   cam_position = camera->position;
 }
 
-Ray RayCaster::make_ray(glm::vec2 px) {
+Ray RayCaster::make_camera_ray(glm::vec2 px) {
   float ray_dx = ((2.0 * px.x - frame_size.x) / frame_size.x) * x_near;
   float ray_dy = -((2.0 * px.y - frame_size.y) / frame_size.y) * y_near;
   Ray ray;
@@ -129,28 +129,40 @@ Ray RayCaster::make_ray(glm::vec2 px) {
   return ray;
 }
 
-ImplicitHit RayCaster::implicit_hit_test(std::shared_ptr<Implicit> implicit,
-                                         Ray& ray, Transform& transform) {
-  ImplicitHit ihit;
+Ray RayCaster::make_ray(glm::vec3 from, glm::vec3 to) {
+  Ray ray;
+  ray.pt = std::move(from);
+  ray.dir = glm::normalize(to - from);
+  return ray;
+}
+
+bool RayCaster::implicit_hit_test(std::shared_ptr<Implicit> implicit,
+                                         Ray& ray, Transform& transform,
+                                         ImplicitHit& ihit) {
+  bool did_hit = false;
+  Hit hit;
   switch (implicit->type) {
     case ImplicitType::plane:
-      ihit.yes = HitTester::test_plane(ray, ihit.hit, transform, glm::vec3(0,1,0));
+      did_hit = HitTester::test_plane(ray, hit, transform, glm::vec3(0,1,0));
       break;
 
     case ImplicitType::sphere:
-      ihit.yes = HitTester::test_sphere(ray, ihit.hit, transform);
+      did_hit = HitTester::test_sphere(ray, hit, transform);
       break;
 
     case ImplicitType::box:
-      ihit.yes = HitTester::test_box(ray, ihit.hit, transform);
+      did_hit = HitTester::test_box(ray, hit, transform);
       break;
 
     default:
       break;
   }
-  if(ihit.yes)
+  if(did_hit) {
+    ihit.hit = hit;
     ihit.material = implicit->material;
-  return ihit;
+    ihit.yes = true;
+  }
+  return did_hit;
 }
 
 bool RayCaster::cast_ray(Ray& ray, std::vector<Renderable>& renderables, ImplicitHit& hit) {
@@ -158,8 +170,9 @@ bool RayCaster::cast_ray(Ray& ray, std::vector<Renderable>& renderables, Implici
   map<float,ImplicitHit> hits;
   float zbuf = std::numeric_limits<float>::max();
   for(auto& renderable: renderables) {
-    ImplicitHit ihit = implicit_hit_test(renderable.implicit, ray, renderable.transform);
-    if(ihit.yes && ihit.hit.dist < zbuf) {
+    ImplicitHit ihit;
+    bool did_hit = implicit_hit_test(renderable.implicit, ray, renderable.transform, ihit);
+    if(did_hit && ihit.hit.dist < zbuf) {
       zbuf = ihit.hit.dist;
       hits[hit.hit.dist] = std::move(ihit);
     }
@@ -176,26 +189,87 @@ bool RayCaster::cast_ray(Ray& ray, std::vector<Renderable>& renderables, Implici
 
 /// RayRenderer
 //--------------------------------------------------
+cv::Vec3f RayRenderer::shade_frag(Hit& hit, Material& material,
+                                  glm::vec3& scene_ambient,
+                                  shared_ptr<Camera> camera, shared_ptr<Light> light,
+                                  std::vector<Renderable>& renderables) {
+  cv::Vec3f frag;
+  bool in_shadow = test_shadow(hit, light, renderables);
+  //if in shadow, then use scene ambient color
+  if(!in_shadow) {
+    glm::vec3 l_vec = glm::normalize(light->position - hit.pt);
+    glm::vec3 v_vec = glm::normalize(camera->position - hit.pt);
+    float dist = glm::length(light->position - hit.pt);
+    float attenuation = 1.0/(light->attenuation.x +
+                             light->attenuation.y * dist +
+                             light->attenuation.z * dist * dist);
+
+    glm::vec3 ambient = material.strength.x * scene_ambient;
+    float cos_t = 0;
+    cos_t = glm::dot(l_vec, hit.norm);
+    cos_t = cos_t < 0 ? 0 : cos_t;
+    glm::vec3 diffuse = material.strength.y * light->color * cos_t;
+    glm::vec3 r = glm::reflect(-l_vec, hit.norm);
+    float spec = glm::dot(r, v_vec);
+    spec = spec < 0 ? 0 : spec;
+    glm::vec3 specular = material.strength.z * light->color * pow(spec, material.shininess);
+    glm::vec3 color = (ambient + attenuation * (diffuse + specular)) * material.color;
+    color = glm::clamp(color, 0.0f, 1.0f);
+    frag = cv::Vec3f(color.b, color.g, color.r);
+  } else {
+    glm::vec3 color = material.strength.x * scene_ambient * material.color;
+    frag = cv::Vec3f(color.b, color.g, color.r);
+  }
+  return frag;
+}
+
+bool RayRenderer::test_shadow(Hit& hit, std::shared_ptr<Light> light,
+                              std::vector<Renderable>& renderables) {
+  //cast a ray to the light
+  Ray ray_to_light = ray_caster->make_ray(hit.pt, light->position);
+  bool is_in_light = true;
+  for(auto& renderable: renderables) {
+    ImplicitHit ihit;
+    bool did_hit = ray_caster->implicit_hit_test(renderable.implicit,
+                                                 ray_to_light,
+                                                 renderable.transform,
+                                                 ihit);
+    // if there is any hit then shadow
+    if(did_hit && (ihit.hit.dist > RAYEPSILON)) {
+      //avoid self hit
+      is_in_light = false;
+      break;
+    }
+  }
+  return !is_in_light;
+}
+
 cv::Mat RayRenderer::render_scene(shared_ptr<RayScene> scene, shared_ptr<Camera> camera) {
   vector<Renderable> renderables = scene->traverse_scene();
   
   cv::Size frame_size(camera->frame_size.x, camera->frame_size.y);
   glm::vec3 ambient = scene->ambient;
-  cv::Mat frame(frame_size * supersample, CV_32FC3, {ambient.r, ambient.g, ambient.b});
+  cv::Mat frame(frame_size * supersample,
+                CV_32FC3, {clear_color.r, clear_color.g, clear_color.b});
   
-  RayCaster ray_caster(camera);
-  
-  for(int y = 0; y < frame_size.height; y++) {
-    for(int x = 0; x <frame_size.width; x++) {
-      cv::Vec3f& frag = frame.at<cv::Vec3f>(cv::Point(x,y));
-      Ray ray = ray_caster.make_ray(glm::vec2(x,y));
-      ImplicitHit hit;
-      if(ray_caster.cast_ray(ray, renderables, hit)) {
-        frag = cv::Vec3f(hit.material.color.r, hit.material.color.g, hit.material.color.b);
-      }
+  ray_caster = make_shared<RayCaster>(camera, glm::vec2(frame.cols, frame.rows));
+
+  // cast ray and shade for each pixel
+  auto handle_ray = [&](int row, int col) {
+    cv::Vec3f& frag = frame.at<cv::Vec3f>(cv::Point(col,row));
+    Ray ray = ray_caster->make_camera_ray(glm::vec2(col,row));
+    ImplicitHit hit;
+    if(ray_caster->cast_ray(ray, renderables, hit)) {
+      frag = shade_frag(hit.hit, hit.material, ambient,
+                        camera, scene->light, renderables);
     }
-  }
-  
+  };
+
+  frame.forEach<cv::Vec3f>([&](cv::Vec3f frag, const int* loc){
+    handle_ray(loc[0], loc[1]);
+  });
+
   cv::resize(frame, frame, frame_size);
+  cv::GaussianBlur(frame, frame, cv::Size(3,3), 0.5);
   return frame;
 }

@@ -2,6 +2,7 @@
 #include <ray/implicit.h>
 #include <opencv2/opencv.hpp>
 #include <map>
+#include <thread>
 
 namespace ray {
 
@@ -60,14 +61,18 @@ namespace ray {
     glm::vec3 cam_position;
     glm::mat3 cam_trans;
 
-    RayCaster(std::shared_ptr<Camera> camera);
-    
-    Ray make_ray(glm::vec2 px);
+    RayCaster(std::shared_ptr<Camera> camera, glm::vec2 frame_size);
 
-    bool cast_ray(Ray& ray, std::vector<Renderable>& renderables, ImplicitHit& hit);
+    Ray make_camera_ray(glm::vec2 px);
 
-    ImplicitHit implicit_hit_test(std::shared_ptr<Implicit> implicit,
-                                  Ray& ray, Transform& transform);
+    Ray make_ray(glm::vec3 from, glm::vec3 to);
+
+    bool cast_ray(Ray& ray, std::vector<Renderable>& renderables,
+                  ImplicitHit& hit);
+
+    bool implicit_hit_test(std::shared_ptr<Implicit> implicit,
+                           Ray& ray, Transform& transform,
+                           ImplicitHit& ihit);
 
   };
 
@@ -75,10 +80,21 @@ namespace ray {
   //--------------------------------------------------
   struct RayRenderer {
     int supersample = 1;
+    std::shared_ptr<RayCaster> ray_caster;
+    glm::vec3 clear_color = glm::vec3(0.3);
     
     RayRenderer() = default;
 
     cv::Mat render_scene(std::shared_ptr<RayScene> scene, std::shared_ptr<Camera> camera);
+
+    bool test_shadow(Hit& hit, std::shared_ptr<Light> light,
+                     std::vector<Renderable>& renderables);
+
+    cv::Vec3f shade_frag(Hit& hit, Material& material,
+                         glm::vec3& scene_ambient,
+                         std::shared_ptr<Camera> camera,
+                         std::shared_ptr<Light> light,
+                         std::vector<Renderable>& renderables);
 
   };
 }
