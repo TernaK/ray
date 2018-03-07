@@ -19,7 +19,7 @@ bool HitTester::test_plane(Ray& ray, Hit& hit, Transform& transform,
     glm::vec3 plane_hit = glm::vec3(transform.model_inv *
                                     glm::vec4(hit.pt - offset, 1.0));
     glm::vec3 diff = glm::abs(plane_hit);
-    if( glm::max(diff.x, max(diff.y, diff.z) ) < 1 )
+    if( glm::max(diff.x, max(diff.y, diff.z) ) < (1 + RAYEPSILON) )
       did_hit = true;
   }
   return did_hit;
