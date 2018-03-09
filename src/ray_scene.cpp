@@ -191,7 +191,7 @@ bool RayCaster::cast_ray(Ray& ray, std::vector<Renderable>& renderables, Implici
 //--------------------------------------------------
 glm::vec3 RayRenderer::get_light_contribution(Hit& hit,
                                               Material& material,
-                                              std::shared_ptr<Camera> camera,
+                                              glm::vec3& eye,
                                               std::shared_ptr<Light> light,
                                               std::vector<Renderable>& renderables) {
   bool is_in_shadow = in_shadow(hit, light, renderables);
@@ -199,7 +199,7 @@ glm::vec3 RayRenderer::get_light_contribution(Hit& hit,
   //if in shadow, then use scene ambient color
   if(!is_in_shadow) {
     glm::vec3 l_vec = glm::normalize(light->position - hit.pt);
-    glm::vec3 v_vec = glm::normalize(camera->position - hit.pt);
+    glm::vec3 v_vec = glm::normalize(eye - hit.pt);
     float dist = glm::length(light->position - hit.pt);
     float attenuation = 1.0/(light->attenuation.x +
                              light->attenuation.y * dist +
@@ -217,30 +217,35 @@ glm::vec3 RayRenderer::get_light_contribution(Hit& hit,
   return color;
 }
 
-cv::Vec3f RayRenderer::shade_frag(Hit& hit, Material& material,
+glm::vec3 RayRenderer::shade_frag(Hit& hit, Material& material,
                                   glm::vec3& scene_ambient,
-                                  shared_ptr<Camera> camera, shared_ptr<Light> light,
-                                  std::vector<Renderable>& renderables) {
+                                  glm::vec3& eye, shared_ptr<Light> light,
+                                  std::vector<Renderable>& renderables,
+                                  int depth) {
   //ambient
   glm::vec3 color = material.strength.x * scene_ambient * material.color;
 
   //diffuse + specular
-  color += get_light_contribution(hit, material, camera, light, renderables);
+  color += get_light_contribution(hit, material, eye, light, renderables);
 
   // reflection
-  glm::vec3 v_vec = glm::normalize(camera->position - hit.pt);
-  glm::vec3 reflect_dir = glm::reflect(-v_vec, hit.norm);
-  Ray reflect_ray;
-  reflect_ray.dir = reflect_dir;
-  reflect_ray.pt = hit.pt;
-  ImplicitHit ihit;
-  if(ray_caster->cast_ray(reflect_ray, renderables, ihit)) {
-    if(!in_shadow(ihit.hit, light, renderables))
-      color += (1.0f/(1.0f + 0.5f * ihit.hit.dist)) * material.reflec * ihit.material.color;
+  if(depth < max_depth) {
+    glm::vec3 v_vec = glm::normalize(eye - hit.pt);
+    Ray reflect_ray;
+    reflect_ray.dir = glm::reflect(-v_vec, hit.norm);;
+    reflect_ray.pt = hit.pt;
+    ImplicitHit ihit;
+    if(ray_caster->cast_ray(reflect_ray, renderables, ihit)) {
+      float attenuation = 1.0f/(reflect_attenuation.x +
+                                reflect_attenuation.y * ihit.hit.dist +
+                                reflect_attenuation.z * ihit.hit.dist * ihit.hit.dist);
+      glm::vec3 reflect_color = shade_frag(ihit.hit, ihit.material, scene_ambient,
+                                           hit.pt, light, renderables, ++depth);
+      color += attenuation * material.reflec * reflect_color;
+    }
   }
-
-  cv::Vec3f frag = cv::Vec3f(color.b, color.g, color.r);
-  return frag;
+  
+  return color;
 }
 
 bool RayRenderer::in_shadow(Hit& hit, std::shared_ptr<Light> light,
@@ -280,8 +285,9 @@ cv::Mat RayRenderer::render_scene(shared_ptr<RayScene> scene, shared_ptr<Camera>
     Ray ray = ray_caster->make_camera_ray(glm::vec2(col,row));
     ImplicitHit hit;
     if(ray_caster->cast_ray(ray, renderables, hit)) {
-      frag = shade_frag(hit.hit, hit.material, ambient,
-                        camera, scene->light, renderables);
+      glm::vec3 frag_color = shade_frag(hit.hit, hit.material, ambient,
+                                        camera->position, scene->light, renderables);
+      frag = cv::Vec3f(frag_color.b, frag_color.g, frag_color.r);
     }
   };
 

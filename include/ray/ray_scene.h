@@ -82,6 +82,8 @@ namespace ray {
     int supersample = 1;
     std::shared_ptr<RayCaster> ray_caster;
     glm::vec3 clear_color = glm::vec3(0.3);
+    glm::vec3 reflect_attenuation = glm::vec3(1,0.5,0.001);
+    int max_depth = 2;
     
     RayRenderer() = default;
 
@@ -91,14 +93,15 @@ namespace ray {
     bool in_shadow(Hit& hit, std::shared_ptr<Light> light,
                      std::vector<Renderable>& renderables);
 
-    cv::Vec3f shade_frag(Hit& hit, Material& material,
+    glm::vec3 shade_frag(Hit& hit, Material& material,
                          glm::vec3& scene_ambient,
-                         std::shared_ptr<Camera> camera,
+                         glm::vec3& eye,
                          std::shared_ptr<Light> light,
-                         std::vector<Renderable>& renderables);
+                         std::vector<Renderable>& renderables,
+                         int depth = 1);
 
     glm::vec3 get_light_contribution(Hit& hit, Material& material,
-                                     std::shared_ptr<Camera> camera,
+                                     glm::vec3& eye,
                                      std::shared_ptr<Light> light,
                                      std::vector<Renderable>& renderables);
 

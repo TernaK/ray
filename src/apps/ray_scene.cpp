@@ -40,8 +40,10 @@ int main(int argc, char* argv[]) {
 
   shared_ptr<Camera> camera = make_shared<Camera>();
   camera->frame_size = glm::vec2(640,480);
-  camera->position = glm::vec3(0,8,0.2);
+//  camera->position = glm::vec3(0,8,0.2);
 //  camera->target = glm::vec3(1,0.5,-1);
+  camera->position = glm::vec3(0,0.5,0.2);
+  camera->target = glm::vec3(1,0.5,-1);
 
   RayRenderer renderer;
   renderer.supersample = 2;
