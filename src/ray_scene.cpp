@@ -9,15 +9,18 @@ bool HitTester::test_plane(Ray& ray, Hit& hit, Transform& transform,
                            glm::vec3 plane_normal,
                            glm::vec3 offset) {
   bool did_hit = false;
-  glm::vec3 plane_o = glm::vec3(transform.model[3]) + offset;
+  glm::vec3 plane_o = glm::vec3(transform.model * glm::vec4(offset, 1.0));
   glm::vec3 plane_n = glm::normalize(transform.normal * plane_normal);
   float dist;
   if(glm::intersectRayPlane(ray.pt, ray.dir, plane_o, plane_n, dist)) {
+    if(dist < 0) return false;
     hit.pt = ray.pt + dist * ray.dir;
     hit.norm = plane_n;
     hit.dist = dist;
     glm::vec3 plane_hit = glm::vec3(transform.model_inv *
-                                    glm::vec4(hit.pt - offset, 1.0));
+                                    glm::vec4(hit.pt, 1.0));
+    //along the normal's axis, that coordinate = 0, hence other two must < 1
+    //in the plane's coordinate space
     glm::vec3 diff = glm::abs(plane_hit);
     if( glm::max(diff.x, max(diff.y, diff.z) ) < (1 + RAYEPSILON) )
       did_hit = true;
@@ -26,30 +29,25 @@ bool HitTester::test_plane(Ray& ray, Hit& hit, Transform& transform,
 }
 
 bool HitTester::test_box(Ray& ray, Hit& hit, Transform& transform) {
-  vector<pair<bool, Hit>> hit_pairs(6);
+  //use the normals as both normals and plane positions
+  //with respect to the box center
   static const vector<glm::vec3> normals = {
     glm::vec3(0,1,0), glm::vec3(0,-1,0),
     glm::vec3(-1,0,0), glm::vec3(1,0,0),
     glm::vec3(0,0,1), glm::vec3(0,0,-1),
   };
-  for(int i = 0; i < 6; i++) {
-    Transform plane_transform = transform;
-    glm::vec3 offset = glm::vec3(plane_transform.model *
-                                 glm::vec4(normals[i], 1.0));
-    hit_pairs[i].first = test_plane(ray, hit_pairs[i].second,
-                                    plane_transform, normals[i], offset);
+
+  map<float, Hit> hit_pairs;
+  for(int i = 0; i < normals.size(); i++) {
+    glm::vec3 offset = normals[i];
+    Hit plane_hit;
+    if(test_plane(ray, plane_hit, transform, normals[i], offset)) {
+      hit_pairs[plane_hit.dist] = plane_hit;
+    }
   }
-  auto end = std::remove_if(hit_pairs.begin(), hit_pairs.end(),
-                            [](const pair<bool, Hit>& h) -> bool {
-                              return h.first == false;
-                            });
-  hit_pairs.resize(end - hit_pairs.begin());
-  std::sort(hit_pairs.begin(), hit_pairs.end(),
-            [](const pair<bool, Hit>& h1, const pair<bool, Hit>& h2) -> bool {
-              return h1.second.dist < h2.second.dist;
-            });
+
   if(!hit_pairs.empty()) {
-    hit = hit_pairs[0].second;
+    hit = hit_pairs.begin()->second;
     return true;
   } else {
     return false;
